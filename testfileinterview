@@ -1,0 +1,117 @@
+import requests
+import re
+import json
+import pandas as pd
+import time
+
+S = requests.Session()
+
+APAC_Countries = [
+'Afghanistan',
+'Australia',
+'Bangladesh',
+'Bhutan',
+'Brunei Darussalam',
+'Cambodia',
+'China'
+'India',
+'Indonesia',
+'Japan',
+'Malaysia',
+'Maldives',
+'Marshall Islands',
+'Micronesia',
+'Mongolia',
+'Myanmar',
+'Nauru',
+'Nepal',
+'New Zealand',
+'Pakistan',
+'Palau',
+'Papua New Guinea',
+'Philippines',
+'Republic of Korea',
+'Samoa',
+'Singapore',
+'Solomon Islands',
+'South Korea',
+'Sri Lanka',
+'Thailand',
+'Timor Leste',
+'Tonga',
+'Tuvalu',
+'Vanuatu',
+'Vietnam'
+]
+
+# API URLs
+
+URL = "https://en.wikipedia.org/w/api.php"
+
+## Game devs
+dataframes = []
+
+for country in APAC_Countries:
+
+    apac_devs = []
+    employee_sizes = []
+    api_get_employee_size_params_list = []
+
+    category_string = f"Category:Video game companies of {country}",
+
+    devs_params = {
+        "action": "query",
+        "cmtitle": category_string,
+        "cmlimit": "300",
+        "list": "categorymembers",
+        "format": "json"
+    }
+
+    R = S.get(url=URL, params=devs_params)
+    DATA = R.json()
+
+    time.sleep(5) # avoid hitting an API call per second limit
+
+    PAGES = DATA['query']['categorymembers']
+
+    for page in PAGES:
+        apac_devs.append(page['title'])
+
+        ## Employee sizes
+    for dev in apac_devs:
+
+        infobox_params = {
+            "action": "query",
+            "prop":"revisions",
+            "rvprop":"content",
+            "format":"json",
+            "titles": dev.replace(" ", "_"),
+            "rvsection":"0"
+        }
+
+        api_get_employee_size_params_list.append(infobox_params)
+
+    for param in api_get_employee_size_params_list:
+
+        infobox_api = S.get(url=URL, params=param)
+        DATA = infobox_api.json()
+
+        x = re.findall("num_employees\s*=\s*.\w*.\s*\d*", infobox_api.text)
+
+        employee_sizes.append(x)    
+
+    df_name = "df_" + str({country})
+    df_name = pd.DataFrame(apac_devs, columns=['Company Name'])
+    df_name['Company Location'] = str({country})
+    df_name['Employee Size'] = employee_sizes
+    employee_sizes = []
+
+    dataframes.append(df_name)
+
+    print(country, " added")
+
+    api_get_devs_params_list = []
+    del df_name # memory release
+
+df_final = pd.concat(dataframes)
+df_final.to_csv('apac_test.csv')  
